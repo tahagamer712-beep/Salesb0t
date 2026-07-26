@@ -1,5 +1,4 @@
-import psycopg2
-import psycopg2.extras
+import psycopg
 import os
 import json
 from collections import Counter
@@ -8,10 +7,37 @@ from datetime import datetime, date, timedelta
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 
+class _DictCursorRow(dict):
+    """صف نتائج يحافظ على نفس سلوك psycopg2.extras.DictCursor بالضبط:
+    يدعم الوصول بالاسم row["col"] وبالفهرس الرقمي row[0] معاً، بالإضافة
+    إلى dict(row) و row.get(...). موجود فقط عشان التحويل إلى psycopg3
+    ما يغيّر أي سطر آخر بالملف يعتمد على هذا السلوك."""
+
+    __slots__ = ("_values",)
+
+    def __init__(self, keys, values):
+        super().__init__(zip(keys, values))
+        self._values = values
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return super().__getitem__(key)
+
+
+def _dict_cursor_row_factory(cursor):
+    keys = [col.name for col in (cursor.description or ())]
+
+    def make_row(values):
+        return _DictCursorRow(keys, values)
+
+    return make_row
+
+
 def get_connection():
-    conn = psycopg2.connect(
+    conn = psycopg.connect(
         DATABASE_URL,
-        cursor_factory=psycopg2.extras.DictCursor,
+        row_factory=_dict_cursor_row_factory,
         connect_timeout=10,
     )
     return conn
