@@ -36,6 +36,7 @@ PACKAGE_IMPORT_MAP = {
     "python-dotenv": ("dotenv", "تحميل ملف .env"),
     "openpyxl": ("openpyxl", "إنشاء وقراءة ملفات Excel"),
     "psycopg[binary]": ("psycopg", "الاتصال بقاعدة بيانات PostgreSQL"),
+    "psycopg-pool": ("psycopg_pool", "تجميع اتصالات قاعدة البيانات (Connection Pool)"),
     "requests": ("requests", "استدعاء واجهة الذكاء الاصطناعي (OpenRouter)"),
 }
 
