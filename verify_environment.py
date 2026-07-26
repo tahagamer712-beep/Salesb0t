@@ -35,7 +35,7 @@ PACKAGE_IMPORT_MAP = {
     "tzdata": (None, "قاعدة بيانات المناطق الزمنية (تُستخدم ضمنياً عبر zoneinfo)"),
     "python-dotenv": ("dotenv", "تحميل ملف .env"),
     "openpyxl": ("openpyxl", "إنشاء وقراءة ملفات Excel"),
-    "psycopg2-binary": ("psycopg2", "الاتصال بقاعدة بيانات PostgreSQL"),
+    "psycopg[binary]": ("psycopg", "الاتصال بقاعدة بيانات PostgreSQL"),
     "requests": ("requests", "استدعاء واجهة الذكاء الاصطناعي (OpenRouter)"),
 }
 
@@ -171,14 +171,14 @@ def check_database():
         return
 
     try:
-        import psycopg2
+        import psycopg
     except ImportError:
-        details.append("psycopg2 غير مثبتة — ما نقدر نفحص الاتصال (راجع فحص Imports)")
+        details.append("psycopg غير مثبتة — ما نقدر نفحص الاتصال (راجع فحص Imports)")
         record("Database", "FAIL", details)
         return
 
     try:
-        conn = psycopg2.connect(db_url, connect_timeout=10)
+        conn = psycopg.connect(db_url, connect_timeout=10)
         cur = conn.cursor()
         cur.execute("SELECT 1")
         cur.fetchone()
