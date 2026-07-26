@@ -34,13 +34,60 @@ def _dict_cursor_row_factory(cursor):
     return make_row
 
 
+import threading
+from psycopg_pool import ConnectionPool
+
+_pool = None
+_pool_lock = threading.Lock()
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = ConnectionPool(
+                    DATABASE_URL,
+                    min_size=1,
+                    max_size=5,
+                    kwargs={
+                        "row_factory": _dict_cursor_row_factory,
+                        "connect_timeout": 10,
+                    },
+                    open=True,
+                )
+    return _pool
+
+
+class _PooledConnection:
+    """يغلّف اتصال مأخوذ من الـpool ويجعل conn.close() يرجّعه للـpool
+    (putconn) بدل ما يقفله فعليًا. هذا يحل مشكلة التأخير مع Neon: بدل ما
+    نفتح اتصال جديد (TCP + TLS + مصادقة كاملة عبر الشبكة) مع كل استعلام،
+    الـpool يبقي اتصالات دافئة مفتوحة ويعيد استخدامها. كل بقية الملف
+    يستمر يستدعي conn.cursor()/conn.commit()/conn.close() بنفس الشكل
+    بدون أي تغيير آخر."""
+
+    def __init__(self, real_conn, pool):
+        object.__setattr__(self, "_real", real_conn)
+        object.__setattr__(self, "_pool", pool)
+        object.__setattr__(self, "_returned", False)
+
+    def close(self):
+        if not self._returned:
+            object.__setattr__(self, "_returned", True)
+            self._pool.putconn(self._real)
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def __setattr__(self, name, value):
+        setattr(self._real, name, value)
+
+
 def get_connection():
-    conn = psycopg.connect(
-        DATABASE_URL,
-        row_factory=_dict_cursor_row_factory,
-        connect_timeout=10,
-    )
-    return conn
+    pool = _get_pool()
+    real_conn = pool.getconn()
+    return _PooledConnection(real_conn, pool)
 
 
 def init_db():
